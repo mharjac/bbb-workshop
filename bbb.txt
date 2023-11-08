@@ -1,0 +1,54 @@
+apt update && apt upgrade -y
+reboot
+
+apt install iptables-persistent netfilter-persistent zfsutils-linux
+
+snap install lxd --channel=5.0/stable
+
+lxd init
+
+lxc launch ubuntu:20.04 bbb-1
+lxc config set bbb-1 security.nesting true
+lxc restart bbb-1
+
+iptables -i ens160 -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination xxxx:80
+iptables -i ens160 -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination xxxx:443
+iptables -i ens160 -t nat -A PREROUTING -p tcp --dport 3478 -j DNAT --to-destination xxxx:3478
+iptables -i ens160 -t nat -A PREROUTING -p udp --dport 3478 -j DNAT --to-destination xxxx:3478
+iptables -i ens160 -t nat -A PREROUTING -p udp --dport 16384:32768 -j DNAT --to-destination xxxx:16384-32768
+
+ip6tables -i ens160 -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination [yyyy]:80
+ip6tables -i ens160 -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination [yyyy]:443
+ip6tables -i ens160 -t nat -A PREROUTING -p tcp --dport 3478 -j DNAT --to-destination [yyyy]:3478
+ip6tables -i ens160 -t nat -A PREROUTING -p udp --dport 3478 -j DNAT --to-destination [yyyy]:3478
+ip6tables -i ens160 -t nat -A PREROUTING -p udp --dport 16384:32768 -j DNAT --to-destination [yyyy]:16384-32768
+
+lxc exec bbb-1 bash
+
+wget https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh
+chmod +x bbb-install.sh
+
+./bbb-install.sh -v focal-270 -s vpg.foi.hr -e m@foi.hr -g -w -j
+
+vi /lib/systemd/system/freeswitch.service
+
+#LimitRTPRIO=infinity
+#LimitRTTIME=7000000
+#IOSchedulingClass=realtime
+#IOSchedulingPriority=2
+#CPUSchedulingPolicy=rr
+#CPUSchedulingPriority=89
+
+systemctl edit bbb-html5-frontend@.service
+systemctl edit bbb-html5-backend@.service
+systemctl edit bbb-webrtc-sfu.service
+
+[Service]
+CPUSchedulingPolicy=other
+Nice=-10
+
+docker exec -it greenlight-v3 bundle exec rake admin:create['user,'user@example.com,'xxxxxxxxxx}']
+
+docker exec -it greenlight-v3 bash
+vi /etc/hosts
+
